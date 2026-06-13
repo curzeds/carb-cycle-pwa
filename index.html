@@ -150,6 +150,31 @@
       line-height: 1.35;
     }
 
+    h2.collapsibleTitle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .collapseToggle {
+      min-height: 32px;
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      padding: 5px 10px;
+      background: #f9fafb;
+      color: #344054;
+      font-size: 12px;
+    }
+
+    .collapseBody {
+      display: block;
+    }
+
+    .isCollapsed > .collapseBody {
+      display: none;
+    }
+
     h3 {
       margin: 12px 0 6px;
       color: #344054;
@@ -284,6 +309,22 @@
       line-height: 1.45;
     }
 
+    .customFoodManager {
+      display: none;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .customFoodManager.isVisible {
+      display: grid;
+    }
+
     .logitem button {
       min-height: 32px;
       padding: 5px 9px;
@@ -347,6 +388,7 @@
       .grid { grid-template-columns: 1fr; }
       .span4, .span5, .span7, .span8, .span12 { grid-column: 1; }
       .row, .row3, .row4 { grid-template-columns: 1fr; }
+      .customFoodManager { grid-template-columns: 1fr; }
       .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .week { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       th, td { padding: 8px 6px; }
@@ -501,6 +543,13 @@
           <button class="danger" id="clearToday">清空今日</button>
           <span id="saveStatus" class="status"></span>
         </div>
+        <div class="customFoodManager" id="customFoodManager">
+          <div>
+            <label for="customFoodSelect">自定义食物</label>
+            <select id="customFoodSelect"></select>
+          </div>
+          <button class="danger" id="deleteCustomFood">删除自定义食物</button>
+        </div>
         <div id="logList" style="margin-top:10px"></div>
       </div>
 
@@ -551,6 +600,7 @@
   <script>
     const STORAGE_KEY = 'carbCycleStateV2';
     const LEGACY_KEY = 'carbCycleState';
+    const COLLAPSE_KEY = 'carbCycleCollapsedPanels';
     const DEFAULT_STATE = {
       profile: { weight: 68.4, height: 166, bmr: 1600, exercise: 600, tdee: 2100 },
       rules: {
@@ -571,6 +621,7 @@
         { name: '米饭/面条', unit: '100g', carb: 28, protein: 3, fat: 0.5, kcal: 130 }
       ]
     };
+    const DEFAULT_FOOD_KEYS = new Set(DEFAULT_STATE.foods.map(foodKey));
 
     let state = loadState();
 
@@ -597,8 +648,17 @@
       };
       next.week = Array.isArray(saved.week) && saved.week.length === 7 ? saved.week : next.week;
       next.logs = saved.logs && typeof saved.logs === 'object' ? saved.logs : {};
-      next.foods = Array.isArray(saved.foods) && saved.foods.length ? saved.foods : next.foods;
+      if (Array.isArray(saved.foods) && saved.foods.length) {
+        next.foods = saved.foods.map((food) => ({
+          ...food,
+          custom: Boolean(food.custom) || !DEFAULT_FOOD_KEYS.has(foodKey(food))
+        }));
+      }
       return next;
+    }
+
+    function foodKey(food) {
+      return [food?.name, food?.unit, food?.carb, food?.protein, food?.fat, food?.kcal].join('|');
     }
 
     function $(id) {
@@ -733,11 +793,35 @@
         .map((food, index) => `<option value="${index}">${escapeHtml(food.name)}</option>`)
         .join('');
       updateFoodUnit();
+      renderCustomFoodManager();
     }
 
     function updateFoodUnit() {
       const food = state.foods[Number($('foodSelect').value) || 0];
       $('foodUnit').value = food ? food.unit : '';
+    }
+
+    function customFoodEntries() {
+      return state.foods
+        .map((food, index) => ({ food, index }))
+        .filter(({ food }) => food.custom);
+    }
+
+    function renderCustomFoodManager() {
+      const entries = customFoodEntries();
+      const manager = $('customFoodManager');
+      const select = $('customFoodSelect');
+
+      if (!entries.length) {
+        manager.classList.remove('isVisible');
+        select.innerHTML = '';
+        return;
+      }
+
+      manager.classList.add('isVisible');
+      select.innerHTML = entries
+        .map(({ food, index }) => `<option value="${index}">${escapeHtml(food.name)}（${escapeHtml(food.unit)}）</option>`)
+        .join('');
     }
 
     function renderAll() {
@@ -960,9 +1044,31 @@
       const fat = parseFloat(prompt('每单位脂肪 g', '0')) || 0;
       const kcalInput = prompt('每单位热量 kcal；留空则按 4/4/9 计算', '');
       const kcal = parseFloat(kcalInput) || carb * 4 + protein * 4 + fat * 9;
-      state.foods.push({ name, unit, carb, protein, fat, kcal });
+      state.foods.push({ name, unit, carb, protein, fat, kcal, custom: true });
       renderFoodOptions();
       renderAll();
+    }
+
+    function deleteCustomFood() {
+      const index = Number($('customFoodSelect').value);
+      const food = state.foods[index];
+
+      if (!food || !food.custom) {
+        alert('请选择一个自定义食物。');
+        return;
+      }
+
+      if (!confirm(`确定删除自定义食物“${food.name}”吗？已经写入历史记录的条目不会被删除。`)) {
+        return;
+      }
+
+      state.foods.splice(index, 1);
+      if (Number($('foodSelect').value) >= state.foods.length) {
+        $('foodSelect').value = String(Math.max(0, state.foods.length - 1));
+      }
+      renderFoodOptions();
+      renderAll();
+      showSaved('自定义食物已删除');
     }
 
     function csvCell(value) {
@@ -1066,6 +1172,7 @@
     $('foodSelect').addEventListener('change', updateFoodUnit);
     $('addFood').addEventListener('click', addFood);
     $('addCustom').addEventListener('click', addCustomFood);
+    $('deleteCustomFood').addEventListener('click', deleteCustomFood);
 
     $('clearToday').addEventListener('click', () => {
       if (!confirm('确定清空所选日期的食物记录吗？')) return;
@@ -1113,6 +1220,53 @@
       }, 1800);
     }
 
+    function setupCollapsibles() {
+      let saved = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '{}');
+      } catch {
+        saved = {};
+      }
+
+      const panels = document.querySelectorAll('main > section:not(.grid), main > section.grid > .card');
+      panels.forEach((panel, index) => {
+        const title = Array.from(panel.children).find((child) => child.tagName === 'H2');
+        if (!title || panel.querySelector(':scope > .collapseBody')) return;
+
+        const rawTitle = title.textContent.trim();
+        const panelId = `panel-${index}-${rawTitle.replace(/\s+/g, '-')}`;
+        const body = document.createElement('div');
+        body.className = 'collapseBody';
+
+        while (title.nextSibling) {
+          body.appendChild(title.nextSibling);
+        }
+        panel.appendChild(body);
+
+        title.classList.add('collapsibleTitle');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'collapseToggle';
+        title.appendChild(button);
+
+        const setCollapsed = (collapsed) => {
+          panel.classList.toggle('isCollapsed', collapsed);
+          button.textContent = collapsed ? '展开' : '收起';
+          button.setAttribute('aria-expanded', String(!collapsed));
+        };
+
+        setCollapsed(Boolean(saved[panelId]));
+
+        button.addEventListener('click', () => {
+          const collapsed = !panel.classList.contains('isCollapsed');
+          saved[panelId] = collapsed;
+          localStorage.setItem(COLLAPSE_KEY, JSON.stringify(saved));
+          setCollapsed(collapsed);
+        });
+      });
+    }
+
+    setupCollapsibles();
     hydrate();
   </script>
 
