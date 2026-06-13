@@ -1229,12 +1229,10 @@
     });
 
     $('resetSettings').addEventListener('click', () => {
-      if (!confirm('清空设置会保留历史记录，但会清空基础信息、方案、食物库和一周排布。确定继续吗？')) return;
+      if (!confirm('清空设置会保留历史记录和食物库，只清空基础信息、碳循环方案和一周排布。确定继续吗？')) return;
       state.profile = clone(DEFAULT_STATE.profile);
       state.rules = clone(DEFAULT_STATE.rules);
       state.week = clone(DEFAULT_STATE.week);
-      state.foods = [];
-      clearFoodForm();
       hydrate();
     });
 
