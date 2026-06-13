@@ -309,11 +309,9 @@
       line-height: 1.45;
     }
 
-    .customFoodManager {
+    .foodLibrary {
       display: none;
-      grid-template-columns: 1fr auto;
       gap: 10px;
-      align-items: end;
       margin-top: 10px;
       padding: 10px;
       border: 1px dashed var(--line);
@@ -321,8 +319,16 @@
       background: #fafafa;
     }
 
-    .customFoodManager.isVisible {
+    .foodLibrary.isVisible {
       display: grid;
+    }
+
+    .foodLibraryActions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
     }
 
     .logitem button {
@@ -388,7 +394,6 @@
       .grid { grid-template-columns: 1fr; }
       .span4, .span5, .span7, .span8, .span12 { grid-column: 1; }
       .row, .row3, .row4 { grid-template-columns: 1fr; }
-      .customFoodManager { grid-template-columns: 1fr; }
       .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .week { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       th, td { padding: 8px 6px; }
@@ -434,9 +439,9 @@
         <input id="tdee" type="number" step="1" inputmode="decimal">
         <div class="btnrow">
           <button id="saveProfile">保存基础信息</button>
-          <button class="ghost" id="resetSettings">恢复默认设置</button>
+          <button class="ghost" id="resetSettings">清空设置</button>
         </div>
-        <p class="muted">默认值来自你的表格：68.4 kg，低碳日 1.5 / 2 / 1 g/kg，高碳日 4 / 2 / 0.5 g/kg。</p>
+        <p class="muted">首次打开为空白状态，请按自己的数据填写；所有内容只保存在当前浏览器。</p>
       </div>
 
       <div class="card span8">
@@ -538,17 +543,51 @@
           <button id="addFood">添加</button>
         </div>
         <div class="btnrow">
-          <button class="ghost" id="addCustom">添加自定义食物</button>
+          <button class="ghost" id="toggleFoodLibrary">管理食物库</button>
           <button class="secondary" id="saveTodayList">保存今日食物列表</button>
           <button class="danger" id="clearToday">清空今日</button>
           <span id="saveStatus" class="status"></span>
         </div>
-        <div class="customFoodManager" id="customFoodManager">
-          <div>
-            <label for="customFoodSelect">自定义食物</label>
-            <select id="customFoodSelect"></select>
+        <div class="foodLibrary" id="foodLibrary">
+          <div class="row">
+            <div>
+              <label for="libraryFoodSelect">食物库列表</label>
+              <select id="libraryFoodSelect"></select>
+            </div>
+            <div>
+              <label for="libraryName">食物名称</label>
+              <input id="libraryName" type="text" placeholder="例如：熟米饭">
+            </div>
           </div>
-          <button class="danger" id="deleteCustomFood">删除自定义食物</button>
+          <div class="row4">
+            <div>
+              <label for="libraryUnit">单位</label>
+              <input id="libraryUnit" type="text" placeholder="例如：100g / 个 / 碗">
+            </div>
+            <div>
+              <label for="libraryCarb">碳水 g</label>
+              <input id="libraryCarb" type="number" step="0.1" inputmode="decimal">
+            </div>
+            <div>
+              <label for="libraryProtein">蛋白质 g</label>
+              <input id="libraryProtein" type="number" step="0.1" inputmode="decimal">
+            </div>
+            <div>
+              <label for="libraryFat">脂肪 g</label>
+              <input id="libraryFat" type="number" step="0.1" inputmode="decimal">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="libraryKcal">热量 kcal，留空按 4/4/9 计算</label>
+              <input id="libraryKcal" type="number" step="0.1" inputmode="decimal">
+            </div>
+            <div class="foodLibraryActions">
+              <button id="saveFoodItem">新增 / 更新食物</button>
+              <button class="ghost" id="newFoodItem">清空表单</button>
+              <button class="danger" id="deleteFoodItem">删除所选食物</button>
+            </div>
+          </div>
         </div>
         <div id="logList" style="margin-top:10px"></div>
       </div>
@@ -598,30 +637,18 @@
   <div class="footer">数据保存在当前浏览器的 localStorage 中，不会上传到服务器。安装到主屏幕后，请避免清除 Safari 网站数据。</div>
 
   <script>
-    const STORAGE_KEY = 'carbCycleStateV2';
-    const LEGACY_KEY = 'carbCycleState';
+    const STORAGE_KEY = 'carbCycleStateV3';
     const COLLAPSE_KEY = 'carbCycleCollapsedPanels';
     const DEFAULT_STATE = {
-      profile: { weight: 68.4, height: 166, bmr: 1600, exercise: 600, tdee: 2100 },
+      profile: { weight: '', height: '', bmr: '', exercise: '', tdee: '' },
       rules: {
-        low: { carb: 1.5, protein: 2, fat: 1 },
-        high: { carb: 4, protein: 2, fat: 0.5 }
+        low: { carb: '', protein: '', fat: '' },
+        high: { carb: '', protein: '', fat: '' }
       },
       week: ['low', 'low', 'high', 'low', 'low', 'high', 'low'],
       logs: {},
-      foods: [
-        { name: '熟米饭', unit: '碗', carb: 58.8, protein: 4.5, fat: 0.5, kcal: 260 },
-        { name: '玉米', unit: '根', carb: 50, protein: 4, fat: 1.5, kcal: 230 },
-        { name: '鸡蛋', unit: '个', carb: 0.6, protein: 7, fat: 4.6, kcal: 72 },
-        { name: '蛋白粉', unit: '勺', carb: 2, protein: 20, fat: 1.5, kcal: 100 },
-        { name: '鸡腿', unit: '个', carb: 0, protein: 20, fat: 6, kcal: 135 },
-        { name: '瘦肉', unit: '100g', carb: 0, protein: 26, fat: 6, kcal: 158 },
-        { name: '燕麦', unit: '50g', carb: 33, protein: 8, fat: 3.5, kcal: 195 },
-        { name: '红薯/土豆', unit: '100g', carb: 20, protein: 2, fat: 0.2, kcal: 90 },
-        { name: '米饭/面条', unit: '100g', carb: 28, protein: 3, fat: 0.5, kcal: 130 }
-      ]
+      foods: []
     };
-    const DEFAULT_FOOD_KEYS = new Set(DEFAULT_STATE.foods.map(foodKey));
 
     let state = loadState();
 
@@ -630,7 +657,7 @@
     }
 
     function loadState() {
-      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return clone(DEFAULT_STATE);
       try {
         return normalizeState(JSON.parse(raw));
@@ -648,17 +675,13 @@
       };
       next.week = Array.isArray(saved.week) && saved.week.length === 7 ? saved.week : next.week;
       next.logs = saved.logs && typeof saved.logs === 'object' ? saved.logs : {};
-      if (Array.isArray(saved.foods) && saved.foods.length) {
+      if (Array.isArray(saved.foods)) {
         next.foods = saved.foods.map((food) => ({
           ...food,
-          custom: Boolean(food.custom) || !DEFAULT_FOOD_KEYS.has(foodKey(food))
+          custom: true
         }));
       }
       return next;
-    }
-
-    function foodKey(food) {
-      return [food?.name, food?.unit, food?.carb, food?.protein, food?.fat, food?.kcal].join('|');
     }
 
     function $(id) {
@@ -666,8 +689,14 @@
     }
 
     function numberValue(id) {
-      const value = parseFloat($(id).value);
-      return Number.isFinite(value) ? value : 0;
+      const raw = $(id).value.trim();
+      if (raw === '') return '';
+      const value = parseFloat(raw);
+      return Number.isFinite(value) ? value : '';
+    }
+
+    function asNumber(value) {
+      return Number(value) || 0;
     }
 
     function round(value, digits = 1) {
@@ -694,15 +723,15 @@
     }
 
     function getTdee() {
-      return state.profile.tdee || (state.profile.bmr + state.profile.exercise);
+      return asNumber(state.profile.tdee) || (asNumber(state.profile.bmr) + asNumber(state.profile.exercise));
     }
 
     function getTarget(type) {
       const rule = state.rules[type] || state.rules.low;
-      const weight = state.profile.weight || 0;
-      const carb = weight * rule.carb;
-      const protein = weight * rule.protein;
-      const fat = weight * rule.fat;
+      const weight = asNumber(state.profile.weight);
+      const carb = weight * asNumber(rule.carb);
+      const protein = weight * asNumber(rule.protein);
+      const fat = weight * asNumber(rule.fat);
       return { carb, protein, fat, kcal: carb * 4 + protein * 4 + fat * 9 };
     }
 
@@ -789,11 +818,11 @@
     }
 
     function renderFoodOptions() {
-      $('foodSelect').innerHTML = state.foods
-        .map((food, index) => `<option value="${index}">${escapeHtml(food.name)}</option>`)
-        .join('');
+      $('foodSelect').innerHTML = state.foods.length
+        ? state.foods.map((food, index) => `<option value="${index}">${escapeHtml(food.name)}</option>`).join('')
+        : '<option value="">请先在食物库添加食物</option>';
       updateFoodUnit();
-      renderCustomFoodManager();
+      renderFoodLibrary();
     }
 
     function updateFoodUnit() {
@@ -801,27 +830,36 @@
       $('foodUnit').value = food ? food.unit : '';
     }
 
-    function customFoodEntries() {
-      return state.foods
-        .map((food, index) => ({ food, index }))
-        .filter(({ food }) => food.custom);
+    function renderFoodLibrary() {
+      const select = $('libraryFoodSelect');
+      select.innerHTML = state.foods.length
+        ? state.foods.map((food, index) => `<option value="${index}">${escapeHtml(food.name)}（${escapeHtml(food.unit)}）</option>`).join('')
+        : '<option value="">暂无食物</option>';
+
+      if (state.foods.length && $('libraryName').value.trim() === '') {
+        fillFoodForm(0);
+      }
     }
 
-    function renderCustomFoodManager() {
-      const entries = customFoodEntries();
-      const manager = $('customFoodManager');
-      const select = $('customFoodSelect');
+    function fillFoodForm(index) {
+      const food = state.foods[Number(index)];
+      $('libraryFoodSelect').value = food ? String(index) : '';
+      $('libraryName').value = food?.name || '';
+      $('libraryUnit').value = food?.unit || '';
+      $('libraryCarb').value = food?.carb ?? '';
+      $('libraryProtein').value = food?.protein ?? '';
+      $('libraryFat').value = food?.fat ?? '';
+      $('libraryKcal').value = food?.kcal ?? '';
+    }
 
-      if (!entries.length) {
-        manager.classList.remove('isVisible');
-        select.innerHTML = '';
-        return;
-      }
-
-      manager.classList.add('isVisible');
-      select.innerHTML = entries
-        .map(({ food, index }) => `<option value="${index}">${escapeHtml(food.name)}（${escapeHtml(food.unit)}）</option>`)
-        .join('');
+    function clearFoodForm() {
+      $('libraryFoodSelect').value = '';
+      $('libraryName').value = '';
+      $('libraryUnit').value = '';
+      $('libraryCarb').value = '';
+      $('libraryProtein').value = '';
+      $('libraryFat').value = '';
+      $('libraryKcal').value = '';
     }
 
     function renderAll() {
@@ -1030,45 +1068,83 @@
     function addFood() {
       const food = state.foods[Number($('foodSelect').value)];
       const qty = numberValue('foodQty');
-      if (!food || qty <= 0) return;
+      if (!food) {
+        alert('请先在食物库添加食物。');
+        return;
+      }
+      if (qty <= 0) return;
       getDayLog().items.push({ ...food, qty });
       renderAll();
     }
 
-    function addCustomFood() {
-      const name = prompt('食物名称');
-      if (!name) return;
-      const unit = prompt('单位，例如 100g / 个 / 碗', '100g') || '份';
-      const carb = parseFloat(prompt('每单位碳水 g', '0')) || 0;
-      const protein = parseFloat(prompt('每单位蛋白质 g', '0')) || 0;
-      const fat = parseFloat(prompt('每单位脂肪 g', '0')) || 0;
-      const kcalInput = prompt('每单位热量 kcal；留空则按 4/4/9 计算', '');
-      const kcal = parseFloat(kcalInput) || carb * 4 + protein * 4 + fat * 9;
-      state.foods.push({ name, unit, carb, protein, fat, kcal, custom: true });
-      renderFoodOptions();
-      renderAll();
+    function readFoodForm() {
+      const name = $('libraryName').value.trim();
+      const unit = $('libraryUnit').value.trim() || '份';
+      const carb = numberValue('libraryCarb') || 0;
+      const protein = numberValue('libraryProtein') || 0;
+      const fat = numberValue('libraryFat') || 0;
+      const kcalInput = numberValue('libraryKcal');
+      const kcal = kcalInput === '' ? carb * 4 + protein * 4 + fat * 9 : kcalInput;
+
+      return { name, unit, carb, protein, fat, kcal, custom: true };
     }
 
-    function deleteCustomFood() {
-      const index = Number($('customFoodSelect').value);
-      const food = state.foods[index];
+    function saveFoodItem() {
+      const food = readFoodForm();
+      const selectedIndex = $('libraryFoodSelect').value;
 
-      if (!food || !food.custom) {
-        alert('请选择一个自定义食物。');
+      if (!food.name) {
+        alert('请先填写食物名称。');
         return;
       }
 
-      if (!confirm(`确定删除自定义食物“${food.name}”吗？已经写入历史记录的条目不会被删除。`)) {
+      let savedIndex = Number(selectedIndex);
+      let message = '食物已更新';
+      if (selectedIndex !== '' && state.foods[Number(selectedIndex)]) {
+        state.foods[Number(selectedIndex)] = food;
+      } else {
+        state.foods.push(food);
+        savedIndex = state.foods.length - 1;
+        message = '食物已新增';
+      }
+
+      renderFoodOptions();
+      $('foodSelect').value = String(savedIndex);
+      $('libraryFoodSelect').value = String(savedIndex);
+      fillFoodForm(savedIndex);
+      updateFoodUnit();
+      renderAll();
+      showSaved(message);
+    }
+
+    function deleteFoodItem() {
+      const index = Number($('libraryFoodSelect').value);
+      const food = state.foods[index];
+
+      if (!food) {
+        alert('请选择一个食物。');
+        return;
+      }
+
+      if (!confirm(`确定删除“${food.name}”吗？已经写入历史记录的条目不会被删除。`)) {
         return;
       }
 
       state.foods.splice(index, 1);
-      if (Number($('foodSelect').value) >= state.foods.length) {
-        $('foodSelect').value = String(Math.max(0, state.foods.length - 1));
-      }
+      clearFoodForm();
       renderFoodOptions();
       renderAll();
-      showSaved('自定义食物已删除');
+      showSaved('食物已删除');
+    }
+
+    function toggleFoodLibrary() {
+      const library = $('foodLibrary');
+      const visible = !library.classList.contains('isVisible');
+      library.classList.toggle('isVisible', visible);
+      $('toggleFoodLibrary').textContent = visible ? '收起食物库' : '管理食物库';
+      if (visible && state.foods.length && !$('libraryName').value.trim()) {
+        fillFoodForm(Number($('foodSelect').value) || 0);
+      }
     }
 
     function csvCell(value) {
@@ -1143,10 +1219,12 @@
     });
 
     $('resetSettings').addEventListener('click', () => {
-      if (!confirm('恢复默认设置会保留历史记录，只重置基础信息、方案和一周排布。确定继续吗？')) return;
+      if (!confirm('清空设置会保留历史记录，但会清空基础信息、方案、食物库和一周排布。确定继续吗？')) return;
       state.profile = clone(DEFAULT_STATE.profile);
       state.rules = clone(DEFAULT_STATE.rules);
       state.week = clone(DEFAULT_STATE.week);
+      state.foods = [];
+      clearFoodForm();
       hydrate();
     });
 
@@ -1171,8 +1249,11 @@
 
     $('foodSelect').addEventListener('change', updateFoodUnit);
     $('addFood').addEventListener('click', addFood);
-    $('addCustom').addEventListener('click', addCustomFood);
-    $('deleteCustomFood').addEventListener('click', deleteCustomFood);
+    $('toggleFoodLibrary').addEventListener('click', toggleFoodLibrary);
+    $('libraryFoodSelect').addEventListener('change', () => fillFoodForm($('libraryFoodSelect').value));
+    $('saveFoodItem').addEventListener('click', saveFoodItem);
+    $('newFoodItem').addEventListener('click', clearFoodForm);
+    $('deleteFoodItem').addEventListener('click', deleteFoodItem);
 
     $('clearToday').addEventListener('click', () => {
       if (!confirm('确定清空所选日期的食物记录吗？')) return;

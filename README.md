@@ -31,7 +31,7 @@ http://localhost:8080/
 
 - Application / Manifest 能看到应用名称和图标。
 - Application / Service Workers 显示 service worker 已注册。
-- Application / Cache Storage 中能看到 `carb-cycle-pwa-v4`。
+- Application / Cache Storage 中能看到 `carb-cycle-pwa-v5`。
 - 断网或开启离线模式后刷新，页面仍能打开。
 
 ## 部署到 GitHub Pages
