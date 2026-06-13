@@ -637,7 +637,7 @@
   <div class="footer">数据保存在当前浏览器的 localStorage 中，不会上传到服务器。安装到主屏幕后，请避免清除 Safari 网站数据。</div>
 
   <script>
-    const STORAGE_KEY = 'carbCycleStateV3';
+    const STORAGE_KEY = 'carbCycleStateV4';
     const COLLAPSE_KEY = 'carbCycleCollapsedPanels';
     const DEFAULT_STATE = {
       profile: { weight: '', height: '', bmr: '', exercise: '', tdee: '' },
@@ -647,7 +647,17 @@
       },
       week: ['low', 'low', 'high', 'low', 'low', 'high', 'low'],
       logs: {},
-      foods: []
+      foods: [
+        { name: '熟米饭', unit: '碗', carb: 58.8, protein: 4.5, fat: 0.5, kcal: 260, custom: true },
+        { name: '玉米', unit: '根', carb: 50, protein: 4, fat: 1.5, kcal: 230, custom: true },
+        { name: '鸡蛋', unit: '个', carb: 0.6, protein: 7, fat: 4.6, kcal: 72, custom: true },
+        { name: '蛋白粉', unit: '勺', carb: 2, protein: 20, fat: 1.5, kcal: 100, custom: true },
+        { name: '鸡腿', unit: '个', carb: 0, protein: 20, fat: 6, kcal: 135, custom: true },
+        { name: '瘦肉', unit: '100g', carb: 0, protein: 26, fat: 6, kcal: 158, custom: true },
+        { name: '燕麦', unit: '50g', carb: 33, protein: 8, fat: 3.5, kcal: 195, custom: true },
+        { name: '红薯/土豆', unit: '100g', carb: 20, protein: 2, fat: 0.2, kcal: 90, custom: true },
+        { name: '米饭/面条', unit: '100g', carb: 28, protein: 3, fat: 0.5, kcal: 130, custom: true }
+      ]
     };
 
     let state = loadState();
